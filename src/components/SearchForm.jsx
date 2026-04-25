@@ -27,9 +27,10 @@ export default function SearchForm({ onSearch, loading }) {
       <form onSubmit={handleSubmit} noValidate autoComplete="off">
         <div className="field-row">
           <div className="field">
-            <label htmlFor="firstName">First Name</label>
+            <label htmlFor="patient-first">First Name</label>
             <input
-              id="firstName"
+              id="patient-first"
+              name="patient-first"
               type="text"
               placeholder="e.g. John"
               value={firstName}
@@ -44,9 +45,10 @@ export default function SearchForm({ onSearch, loading }) {
           </div>
 
           <div className="field">
-            <label htmlFor="lastName">Last Name</label>
+            <label htmlFor="patient-last">Last Name</label>
             <input
-              id="lastName"
+              id="patient-last"
+              name="patient-last"
               type="text"
               placeholder="e.g. Doe"
               value={lastName}
