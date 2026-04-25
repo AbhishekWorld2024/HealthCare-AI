@@ -24,7 +24,7 @@ export default function SearchForm({ onSearch, loading }) {
       <h2>Search Patient</h2>
       <p className="hint">Enter the patient's full name to retrieve their records.</p>
 
-      <form onSubmit={handleSubmit} noValidate>
+      <form onSubmit={handleSubmit} noValidate autoComplete="off">
         <div className="field-row">
           <div className="field">
             <label htmlFor="firstName">First Name</label>
