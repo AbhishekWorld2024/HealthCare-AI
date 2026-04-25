@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HealthCare AI — Patient Search</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <span class="cross">&#10010;</span>
+        <span>HealthCare <strong>AI</strong></span>
+      </div>
+      <p class="tagline">Patient Information Portal</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="search-card">
+      <h2>Search Patient</h2>
+      <p class="hint">Enter the patient's full name to retrieve their records.</p>
+
+      <form id="searchForm" novalidate>
+        <div class="field-row">
+          <div class="field">
+            <label for="firstName">First Name</label>
+            <input
+              type="text"
+              id="firstName"
+              placeholder="e.g. John"
+              autocomplete="off"
+            />
+            <span class="error-msg" id="firstNameError">First name is required.</span>
+          </div>
+          <div class="field">
+            <label for="lastName">Last Name</label>
+            <input
+              type="text"
+              id="lastName"
+              placeholder="e.g. Doe"
+              autocomplete="off"
+            />
+            <span class="error-msg" id="lastNameError">Last name is required.</span>
+          </div>
+        </div>
+        <button type="submit" id="searchBtn">
+          <span class="btn-text">Search</span>
+          <span class="btn-icon">&#128269;</span>
+        </button>
+      </form>
+    </section>
+
+    <section id="resultsSection" class="hidden">
+      <!-- Loading spinner -->
+      <div id="loader" class="loader hidden">
+        <div class="spinner"></div>
+        <p>Fetching patient records…</p>
+      </div>
+
+      <!-- Not found -->
+      <div id="notFound" class="not-found hidden">
+        <span class="nf-icon">&#9888;</span>
+        <h3>No Patient Found</h3>
+        <p>No records match <strong id="searchedName"></strong>. Please verify the name and try again.</p>
+      </div>
+
+      <!-- Patient card -->
+      <div id="patientCard" class="patient-card hidden">
+        <div class="card-header">
+          <div class="avatar" id="avatarInitials"></div>
+          <div>
+            <h3 id="patientName"></h3>
+            <span class="badge" id="patientGender"></span>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="label">Age</span>
+              <span class="value" id="patientAge"></span>
+            </div>
+            <div class="info-item">
+              <span class="label">Blood Type</span>
+              <span class="value" id="patientBlood"></span>
+            </div>
+            <div class="info-item">
+              <span class="label">Date of Birth</span>
+              <span class="value" id="patientDob"></span>
+            </div>
+            <div class="info-item">
+              <span class="label">Patient ID</span>
+              <span class="value" id="patientId"></span>
+            </div>
+          </div>
+
+          <div class="section-title">Medical History</div>
+          <ul class="history-list" id="medicalHistory"></ul>
+
+          <div class="section-title">Current Medications</div>
+          <div class="meds-list" id="medications"></div>
+
+          <div class="section-title">Last Visit</div>
+          <p id="lastVisit" class="last-visit"></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 HealthCare AI &mdash; For demonstration purposes only.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
