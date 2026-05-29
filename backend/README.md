@@ -1,32 +1,40 @@
-# HealthCare-AI — RAG Backend (100% Free / Local)
+# HealthCare-AI — RAG Backend (100% Free / Local / JavaScript)
 
-This backend turns a patient name into an **AI-generated clinical summary** using
-a local RAG pipeline. No paid APIs, no data leaves your machine.
+Turns a patient name into an **AI-generated clinical summary** using a local
+RAG pipeline written entirely in **Node.js** — no Python required.
+No paid APIs, no data leaves your machine.
 
 ```
-React (Vite)  →  FastAPI  →  ChromaDB (retrieve)  →  Ollama / Llama 3 (generate)
-                              ↑ HuggingFace embeddings (all-MiniLM-L6-v2)
+React (Vite)  →  Express (Node)  →  Vector store (retrieve)  →  Ollama / Llama 3 (generate)
+                                     ↑ Ollama embeddings (nomic-embed-text)
 ```
+
+This is genuine RAG: every patient record is embedded into a vector store, the
+relevant record is **retrieved** by similarity search, and the local LLM
+**generates** a grounded summary from that retrieved context.
 
 ---
 
 ## Prerequisites (Windows)
 
-1. **Python 3.10+** — https://www.python.org/downloads/
-   (During install, tick **"Add python.exe to PATH"**.)
+1. **Node.js 18+** — you already have this for the React app.
 
 2. **Ollama** (the local LLM engine) — https://ollama.com/download
-   After installing, open a terminal and pull a model:
+   After installing, open a terminal and pull the two models we use:
    ```bash
    ollama pull llama3
+   ollama pull nomic-embed-text
    ```
-   > Llama 3 (8B) needs ~8 GB RAM. If your machine is smaller, use a lighter model:
+   > `llama3` = the chat model that writes the summary (~8 GB RAM).
+   > `nomic-embed-text` = the embedding model for the vector store (small/fast).
+   >
+   > Low on RAM? Use a lighter chat model instead:
    > ```bash
    > ollama pull mistral
    > ```
-   > then set `OLLAMA_MODEL=mistral` (see step 4 below).
+   > then set `OLLAMA_MODEL=mistral` before starting (see below).
 
-   Ollama runs automatically in the background at `http://localhost:11434`.
+   Ollama runs in the background at `http://localhost:11434`.
 
 ---
 
@@ -37,41 +45,36 @@ Open a terminal **inside the `backend` folder**:
 ```bash
 cd backend
 
-REM 1. Create and activate a virtual environment
-python -m venv venv
-venv\Scripts\activate
+REM 1. Install dependencies (one-time)
+npm install
 
-REM 2. Install dependencies (one-time, downloads packages)
-pip install -r requirements.txt
-
-REM 3. Start the API server
-uvicorn main:app --reload --port 8000
+REM 2. Start the API server
+npm start
 ```
 
-The **first startup is slow** (it downloads the embedding model and builds the
-vector index). When you see `RAG engine ready.` it's good to go.
-
-Test it:
+When you see `RAG engine ready.` it's good to go. Test it:
 ```
 http://localhost:8000/api/health
 ```
 
 ---
 
-## Using a different model
+## Configuration (optional)
 
-The defaults can be overridden with environment variables before starting:
+Override defaults with environment variables before `npm start`:
 
+| Variable          | Default              | Purpose                        |
+|-------------------|----------------------|--------------------------------|
+| `OLLAMA_MODEL`    | `llama3`             | Chat model that writes summary |
+| `EMBED_MODEL`     | `nomic-embed-text`   | Embedding model for retrieval  |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint            |
+| `PORT`            | `8000`               | API server port                |
+
+Example (Windows):
 ```bash
 set OLLAMA_MODEL=mistral
-uvicorn main:app --reload --port 8000
+npm start
 ```
-
-| Variable          | Default                                    |
-|-------------------|--------------------------------------------|
-| `OLLAMA_MODEL`    | `llama3`                                   |
-| `OLLAMA_BASE_URL` | `http://localhost:11434`                   |
-| `EMBED_MODEL`     | `sentence-transformers/all-MiniLM-L6-v2`   |
 
 ---
 
@@ -79,12 +82,12 @@ uvicorn main:app --reload --port 8000
 
 You need **two terminals**:
 
-| Terminal | Folder      | Command                                   |
-|----------|-------------|-------------------------------------------|
-| 1        | `backend`   | `uvicorn main:app --reload --port 8000`   |
-| 2        | project root| `npm run dev`                             |
+| Terminal | Folder        | Command         |
+|----------|---------------|-----------------|
+| 1        | `backend`     | `npm start`     |
+| 2        | project root  | `npm run dev`   |
 
-Then open the frontend at `http://localhost:5173`, search a patient
+Open the frontend at `http://localhost:5173`, search a patient
 (e.g. **John Doe**), and you'll see the AI-generated clinical summary.
 
 > If the backend is **not** running, the frontend automatically falls back to
