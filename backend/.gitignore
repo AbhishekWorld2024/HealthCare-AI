@@ -1,0 +1,8 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Local vector store (regenerated on startup)
+chroma_store/

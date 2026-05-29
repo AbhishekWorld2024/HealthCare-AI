@@ -1,6 +1,6 @@
 import { computeAge, formatDob } from '../data/patients'
 
-export default function PatientCard({ patient }) {
+export default function PatientCard({ patient, description }) {
   const initials = patient.firstName[0] + patient.lastName[0]
   const age = computeAge(patient.dob)
 
@@ -15,6 +15,15 @@ export default function PatientCard({ patient }) {
       </div>
 
       <div className="card-body">
+        {description && (
+          <div className="ai-summary">
+            <div className="ai-summary-title">
+              <span className="ai-badge">AI</span> Clinical Summary
+            </div>
+            <p>{description}</p>
+          </div>
+        )}
+
         <div className="info-grid">
           <InfoItem label="Age" value={`${age} years`} />
           <InfoItem label="Blood Type" value={patient.bloodType} />

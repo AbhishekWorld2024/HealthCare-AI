@@ -4,26 +4,29 @@ import SearchForm from './components/SearchForm'
 import PatientCard from './components/PatientCard'
 import Loader from './components/Loader'
 import NotFound from './components/NotFound'
-import { findPatient } from './data/patients'
+import { getPatientSummary } from './data/api'
 
 const STATUS = { IDLE: 'idle', LOADING: 'loading', FOUND: 'found', NOT_FOUND: 'notfound' }
 
 export default function App() {
   const [status, setStatus] = useState(STATUS.IDLE)
   const [patient, setPatient] = useState(null)
+  const [description, setDescription] = useState(null)
   const [searchedName, setSearchedName] = useState('')
 
   async function handleSearch(firstName, lastName) {
     setStatus(STATUS.LOADING)
     setSearchedName(`${firstName} ${lastName}`)
 
-    const result = await findPatient(firstName, lastName)
+    const result = await getPatientSummary(firstName, lastName)
 
-    if (result) {
-      setPatient(result)
+    if (result.found) {
+      setPatient(result.patient)
+      setDescription(result.description)
       setStatus(STATUS.FOUND)
     } else {
       setPatient(null)
+      setDescription(null)
       setStatus(STATUS.NOT_FOUND)
     }
   }
@@ -37,7 +40,9 @@ export default function App() {
 
         {status === STATUS.LOADING && <Loader />}
         {status === STATUS.NOT_FOUND && <NotFound name={searchedName} />}
-        {status === STATUS.FOUND && patient && <PatientCard patient={patient} />}
+        {status === STATUS.FOUND && patient && (
+          <PatientCard patient={patient} description={description} />
+        )}
       </main>
 
       <footer>

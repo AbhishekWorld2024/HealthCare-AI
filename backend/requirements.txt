@@ -1,0 +1,14 @@
+# FastAPI web server
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# RAG orchestration (LangChain)
+langchain==0.3.14
+langchain-community==0.3.14
+langchain-chroma==0.1.4
+langchain-huggingface==0.1.2
+langchain-ollama==0.2.2
+
+# Vector store + embeddings (all free / local)
+chromadb==0.5.23
+sentence-transformers==3.3.1
