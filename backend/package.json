@@ -1,16 +1,18 @@
 {
   "name": "healthcare-ai-rag-backend",
   "version": "1.0.0",
-  "description": "Free local RAG backend (LangChain.js + Ollama) for HealthCare-AI",
+  "description": "Free local RAG backend (LangChain.js + Ollama + SQLite) for HealthCare-AI",
   "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "seed": "node seed.js"
   },
   "dependencies": {
     "@langchain/core": "^0.3.30",
     "@langchain/ollama": "^0.1.4",
+    "better-sqlite3": "^11.7.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "langchain": "^0.3.11"

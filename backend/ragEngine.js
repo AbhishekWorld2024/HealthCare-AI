@@ -2,18 +2,20 @@
  * RAG engine for HealthCare-AI (JavaScript / Node.js — no Python).
  *
  * Pipeline (all free / local):
- *   1. Load patient records from patients.json
+ *   1. Load patient records from the SQLite database (db.js)
  *   2. Turn each record into a text "document"
  *   3. Embed the documents with a local Ollama embedding model (nomic-embed-text)
- *   4. Store the vectors in an in-memory LangChain vector store
+ *   4. Store the vectors in a vector store that is PERSISTED TO DISK
+ *      (vector-index.json) so it is NOT re-embedded on every restart
  *   5. On a query, retrieve the matching patient (vector similarity search)
- *      and ask a local Ollama LLM (Llama 3 / Mistral) to write a grounded
- *      clinical description.
+ *      and STREAM a grounded clinical summary from a local Ollama LLM
+ *      (Llama 3 / Mistral), token by token.
  *
  * Nothing leaves the machine; there are no API keys or paid services.
  */
 
-import { readFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -23,8 +25,10 @@ import { StringOutputParser } from '@langchain/core/output_parsers'
 import { ChatOllama, OllamaEmbeddings } from '@langchain/ollama'
 import { MemoryVectorStore } from 'langchain/vectorstores/memory'
 
+import { getAllPatients, findPatientByName, countPatients } from './db.js'
+
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const PATIENTS_FILE = join(__dirname, 'patients.json')
+const VECTOR_INDEX_FILE = join(__dirname, 'vector-index.json')
 
 // --- Configuration (override via environment variables) ---------------------
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434'
@@ -63,21 +67,58 @@ const prompt = ChatPromptTemplate.fromMessages([
 
 export class RAGEngine {
   constructor() {
-    this.patients = []
     this.vectorStore = null
     this.chain = null
+    this.embeddings = null
   }
 
-  /** Load data, build the vector index, and wire up the generation chain. */
+  /** Load data, build/restore the vector index, and wire up the chain. */
   async init() {
-    this.patients = JSON.parse(await readFile(PATIENTS_FILE, 'utf-8'))
-
-    const embeddings = new OllamaEmbeddings({
+    this.embeddings = new OllamaEmbeddings({
       model: EMBED_MODEL,
       baseUrl: OLLAMA_BASE_URL,
     })
 
-    const documents = this.patients.map(
+    this.vectorStore = await this.loadOrBuildIndex()
+
+    const llm = new ChatOllama({
+      model: OLLAMA_MODEL,
+      baseUrl: OLLAMA_BASE_URL,
+      temperature: 0.2,
+    })
+    this.chain = prompt.pipe(llm).pipe(new StringOutputParser())
+  }
+
+  /**
+   * Restore the vector index from disk if the cache exists and matches the
+   * current patient count; otherwise embed everything and persist it.
+   * This avoids re-embedding on every server restart.
+   */
+  async loadOrBuildIndex() {
+    const patients = getAllPatients()
+
+    if (existsSync(VECTOR_INDEX_FILE)) {
+      try {
+        const cache = JSON.parse(await readFile(VECTOR_INDEX_FILE, 'utf-8'))
+        if (cache.count === countPatients() && Array.isArray(cache.vectors)) {
+          const store = new MemoryVectorStore(this.embeddings)
+          const documents = cache.documents.map(
+            (d) => new Document({ pageContent: d.pageContent, metadata: d.metadata })
+          )
+          // Re-hydrate with the pre-computed vectors — no embedding calls.
+          await store.addVectors(cache.vectors, documents)
+          console.log(`Loaded vector index from disk (${cache.count} patients).`)
+          return store
+        }
+        console.log('Vector index is stale — rebuilding.')
+      } catch {
+        console.log('Vector index cache unreadable — rebuilding.')
+      }
+    }
+
+    // Build fresh: embed every patient document and persist to disk.
+    console.log(`Embedding ${patients.length} patient(s)...`)
+    const documents = patients.map(
       (p) =>
         new Document({
           pageContent: patientToText(p),
@@ -88,51 +129,62 @@ export class RAGEngine {
           },
         })
     )
+    const texts = documents.map((d) => d.pageContent)
+    const vectors = await this.embeddings.embedDocuments(texts)
 
-    // Embed + index every patient record in the vector store.
-    this.vectorStore = await MemoryVectorStore.fromDocuments(documents, embeddings)
+    const store = new MemoryVectorStore(this.embeddings)
+    await store.addVectors(vectors, documents)
 
-    const llm = new ChatOllama({
-      model: OLLAMA_MODEL,
-      baseUrl: OLLAMA_BASE_URL,
-      temperature: 0.2,
-    })
-    this.chain = prompt.pipe(llm).pipe(new StringOutputParser())
+    await writeFile(
+      VECTOR_INDEX_FILE,
+      JSON.stringify({
+        count: countPatients(),
+        vectors,
+        documents: documents.map((d) => ({ pageContent: d.pageContent, metadata: d.metadata })),
+      })
+    )
+    console.log('Vector index built and saved to disk.')
+    return store
   }
 
   findPatient(firstName, lastName) {
-    const fn = firstName.trim().toLowerCase()
-    const ln = lastName.trim().toLowerCase()
-    return (
-      this.patients.find(
-        (p) => p.firstName.toLowerCase() === fn && p.lastName.toLowerCase() === ln
-      ) ?? null
-    )
+    return findPatientByName(firstName, lastName)
   }
 
-  /**
-   * Retrieve the patient from the vector store and generate an AI clinical
-   * description with the local LLM.
-   * Returns: { found, patient, description }
-   */
-  async generateSummary(firstName, lastName) {
-    const patient = this.findPatient(firstName, lastName)
-    if (!patient) return { found: false, patient: null, description: null }
-
+  /** Retrieve the grounding context for a patient via vector similarity search. */
+  async retrieveContext(firstName, lastName, patient) {
     const fn = firstName.trim().toLowerCase()
     const ln = lastName.trim().toLowerCase()
-
-    // RAG retrieval: vector similarity search, filtered to this patient.
     const results = await this.vectorStore.similaritySearch(
       `${firstName} ${lastName} medical summary`,
       1,
       (doc) => doc.metadata.firstName === fn && doc.metadata.lastName === ln
     )
-    const context = results.length ? results[0].pageContent : patientToText(patient)
+    return results.length ? results[0].pageContent : patientToText(patient)
+  }
 
-    // Augment + generate with the local LLM.
+  /**
+   * Async generator that STREAMS the AI clinical summary token by token.
+   * Yields plain text chunks as the local LLM produces them.
+   */
+  async *streamSummary(firstName, lastName) {
+    const patient = this.findPatient(firstName, lastName)
+    if (!patient) return
+
+    const context = await this.retrieveContext(firstName, lastName, patient)
+    const stream = await this.chain.stream({ context })
+    for await (const chunk of stream) {
+      yield chunk
+    }
+  }
+
+  /** Non-streaming variant (kept for completeness / fallback). */
+  async generateSummary(firstName, lastName) {
+    const patient = this.findPatient(firstName, lastName)
+    if (!patient) return { found: false, patient: null, description: null }
+
+    const context = await this.retrieveContext(firstName, lastName, patient)
     const description = await this.chain.invoke({ context })
-
     return { found: true, patient, description: description.trim() }
   }
 }

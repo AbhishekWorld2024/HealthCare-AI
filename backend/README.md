@@ -6,12 +6,21 @@ No paid APIs, no data leaves your machine.
 
 ```
 React (Vite)  →  Express (Node)  →  Vector store (retrieve)  →  Ollama / Llama 3 (generate)
-                                     ↑ Ollama embeddings (nomic-embed-text)
+                      ↑                    ↑                              │
+                 SQLite (patients.db)  persisted to disk          streamed token-by-token
+                                        (vector-index.json)
 ```
 
 This is genuine RAG: every patient record is embedded into a vector store, the
 relevant record is **retrieved** by similarity search, and the local LLM
 **generates** a grounded summary from that retrieved context.
+
+**Key features**
+- **SQLite storage** (`patients.db`) — scales to thousands of records, easy to manage.
+- **Persistent vector index** (`vector-index.json`) — embeddings are computed once
+  and cached to disk, so the server does **not** re-embed on every restart.
+- **Streaming responses** — the AI summary is streamed token-by-token (typewriter
+  effect) so you see text appear immediately instead of waiting.
 
 ---
 
@@ -48,7 +57,10 @@ cd backend
 REM 1. Install dependencies (one-time)
 npm install
 
-REM 2. Start the API server
+REM 2. Load the patient data into SQLite (one-time, or after editing patients.json)
+npm run seed
+
+REM 3. Start the API server
 npm start
 ```
 
@@ -56,6 +68,15 @@ When you see `RAG engine ready.` it's good to go. Test it:
 ```
 http://localhost:8000/api/health
 ```
+
+> **First start** embeds all patients and saves the index to `vector-index.json`.
+> Every later start loads that file instantly — no re-embedding.
+
+### Adding / editing patients
+
+1. Edit `patients.json` (add records — it scales to 50, 500, or more).
+2. Run `npm run seed` again — this updates SQLite and clears the cached index.
+3. Restart with `npm start` — the index rebuilds from the new data.
 
 ---
 
@@ -82,10 +103,10 @@ npm start
 
 You need **two terminals**:
 
-| Terminal | Folder        | Command         |
-|----------|---------------|-----------------|
-| 1        | `backend`     | `npm start`     |
-| 2        | project root  | `npm run dev`   |
+| Terminal | Folder        | Command                          |
+|----------|---------------|----------------------------------|
+| 1        | `backend`     | `npm run seed` then `npm start`  |
+| 2        | project root  | `npm run dev`                    |
 
 Open the frontend at `http://localhost:5173`, search a patient
 (e.g. **John Doe**), and you'll see the AI-generated clinical summary.
