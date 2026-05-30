@@ -1,6 +1,10 @@
 /**
  * SQLite data layer for HealthCare-AI.
  *
+ * Uses Node's BUILT-IN SQLite module (`node:sqlite`) — no native compilation,
+ * no Visual Studio build tools, no extra npm packages. Requires Node 22.13+
+ * (you have v24, which includes it).
+ *
  * Patient records live in a local SQLite database file (patients.db) instead
  * of a flat JSON file. This scales comfortably to thousands of records and
  * lets you add / edit / delete patients with simple SQL — no cloud, no server.
@@ -9,15 +13,15 @@
  * in TEXT columns and parsed back into arrays on read.
  */
 
-import Database from 'better-sqlite3'
+import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DB_FILE = join(__dirname, 'patients.db')
 
-const db = new Database(DB_FILE)
-db.pragma('journal_mode = WAL')
+const db = new DatabaseSync(DB_FILE)
+db.exec('PRAGMA journal_mode = WAL;')
 
 // Create the table on first use.
 db.exec(`
@@ -40,9 +44,15 @@ db.exec(`
 function rowToPatient(row) {
   if (!row) return null
   return {
-    ...row,
+    id: row.id,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    dob: row.dob,
+    gender: row.gender,
+    bloodType: row.bloodType,
     history: JSON.parse(row.history ?? '[]'),
     medications: JSON.parse(row.medications ?? '[]'),
+    lastVisit: row.lastVisit,
   }
 }
 
@@ -51,17 +61,23 @@ export function upsertPatient(p) {
   const stmt = db.prepare(`
     INSERT INTO patients
       (id, firstName, lastName, dob, gender, bloodType, history, medications, lastVisit)
-    VALUES
-      (@id, @firstName, @lastName, @dob, @gender, @bloodType, @history, @medications, @lastVisit)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
-      firstName=@firstName, lastName=@lastName, dob=@dob, gender=@gender,
-      bloodType=@bloodType, history=@history, medications=@medications, lastVisit=@lastVisit
+      firstName=excluded.firstName, lastName=excluded.lastName, dob=excluded.dob,
+      gender=excluded.gender, bloodType=excluded.bloodType, history=excluded.history,
+      medications=excluded.medications, lastVisit=excluded.lastVisit
   `)
-  stmt.run({
-    ...p,
-    history: JSON.stringify(p.history ?? []),
-    medications: JSON.stringify(p.medications ?? []),
-  })
+  stmt.run(
+    p.id,
+    p.firstName,
+    p.lastName,
+    p.dob ?? null,
+    p.gender ?? null,
+    p.bloodType ?? null,
+    JSON.stringify(p.history ?? []),
+    JSON.stringify(p.medications ?? []),
+    p.lastVisit ?? null
+  )
 }
 
 /** Return every patient. */

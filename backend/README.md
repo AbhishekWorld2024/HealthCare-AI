@@ -26,7 +26,11 @@ relevant record is **retrieved** by similarity search, and the local LLM
 
 ## Prerequisites (Windows)
 
-1. **Node.js 18+** — you already have this for the React app.
+1. **Node.js 22.13+** — required for the built-in SQLite module (`node:sqlite`).
+   You have v24, which is fine. (No native build tools needed.)
+   > On startup you may see a harmless `ExperimentalWarning: SQLite is an
+   > experimental feature` — that's just Node noting the built-in SQLite module
+   > is still maturing. It does not affect the app.
 
 2. **Ollama** (the local LLM engine) — https://ollama.com/download
    After installing, open a terminal and pull the two models we use:
