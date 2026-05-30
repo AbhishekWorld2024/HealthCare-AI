@@ -1,8 +1,11 @@
 import { computeAge, formatDob } from '../data/patients'
 
-export default function PatientCard({ patient }) {
+export default function PatientCard({ patient, description, generating }) {
   const initials = patient.firstName[0] + patient.lastName[0]
   const age = computeAge(patient.dob)
+
+  // Show the AI block while streaming OR once we have text.
+  const showAiBlock = generating || Boolean(description)
 
   return (
     <div className="patient-card">
@@ -15,6 +18,26 @@ export default function PatientCard({ patient }) {
       </div>
 
       <div className="card-body">
+        {showAiBlock && (
+          <div className="ai-summary">
+            <div className="ai-summary-title">
+              <span className="ai-badge">AI</span> Clinical Summary
+              {generating && <span className="ai-generating">AI is generating…</span>}
+            </div>
+            {description ? (
+              <p>
+                {description}
+                {generating && <span className="type-cursor" />}
+              </p>
+            ) : (
+              <p className="ai-placeholder">
+                Analyzing the record and writing a summary
+                <span className="type-cursor" />
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="info-grid">
           <InfoItem label="Age" value={`${age} years`} />
           <InfoItem label="Blood Type" value={patient.bloodType} />
